@@ -6,7 +6,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - shell: pwsh
-        run: Expand-Archive p.zip -DestinationPath p -Force
+        run: Expand-Archive .zip -DestinationPath p -Force
       - shell: pwsh
         run: |
           cd p
