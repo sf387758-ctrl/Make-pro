@@ -1,25 +1,28 @@
+
 name: Build VST3
-on: [push]
+on:
+  push:
+  workflow_dispatch:
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unzip
+      - name: Unzip Project
         shell: pwsh
         run: |
-          Expand-Archive -Path "BM800ToPro_VST3_JUCE_Project.zip" -DestinationPath ./src -Force
+          Expand-Archive -Path "BM800ToPro_VST3_JUCE_Project.zip" -DestinationPath ./plugin -Force
       - name: Build
         shell: pwsh
         run: |
-          $f = Get-ChildItem -Path ./src -Recurse -Filter CMakeLists.txt | Select-Object -First 1
-          Set-Location $f.DirectoryName
+          $cmake = Get-ChildItem -Path ./plugin -Recurse -Filter CMakeLists.txt | Select-Object -First 1
+          Set-Location $cmake.DirectoryName
           cmake -B build
           cmake --build build --config Release
-      - name: Upload Plugin
+      - name: Upload VST3
         uses: actions/upload-artifact@v4
         with:
-          name: BM800-Pro-VST3-Ready
+          name: BM800-Pro-VST3-FINAL
           path: |
+            **/build/**/*.vst3
             **/*.vst3
-            **/Release/*.dll
