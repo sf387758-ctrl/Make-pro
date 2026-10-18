@@ -1,18 +1,23 @@
-name: Build
-on: [push, workflow_dispatch]
+name: Build VST3
+on: [push]
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - shell: pwsh
-        run: Expand-Archive .zip -DestinationPath p -Force
-      - shell: pwsh
+      - name: Unzip
+        shell: pwsh
         run: |
-          cd p
-          cmake -B b
-          cmake --build b --config Release
-      - uses: actions/upload-artifact@v4
+          $zip = Get-ChildItem *.zip | Select-Object -First 1
+          Expand-Archive $zip.FullName -DestinationPath p -Force
+          dir p -Recurse
+      - name: Configure
+        run: |
+          if (Test-Path p/CMakeLists.txt) { cmake -S p -B build -DCMAKE_BUILD_TYPE=Release } else { $d = Get-ChildItem p -Recurse -Filter CMakeLists.txt | Select-Object -First 1 | ForEach-Object { $_.DirectoryName }; cmake -S $d -B build -DCMAKE_BUILD_TYPE=Release }
+      - name: Build
+        run: cmake --build build --config Release
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
         with:
-          name: VST3
+          name: BM800ToPro_VST3
           path: "**/*.vst3"
