@@ -5,23 +5,35 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      
       - name: Unzip
         shell: pwsh
         run: |
           $zip = Get-ChildItem *.zip | Select-Object -First 1
           Expand-Archive $zip.FullName -DestinationPath p -Force
-      - name: FIX JUCE API
+          dir p -Recurse -Depth 3
+
+      - name: FORCE JUCE 7
         shell: pwsh
         run: |
-          $file = "p/BM800ToPro_VST3/Source/PluginProcessor.cpp"
-          (Get-Content $file) -replace 'setAttackTime','setAttack' -replace 'setReleaseTime','setRelease' -replace 'setHoldTime','setHold' | Set-Content $file
+          $cmake = Get-ChildItem p -Recurse -Filter CMakeLists.txt | Select-Object -First 1
+          (Get-Content $cmake.FullName) -replace 'GIT_TAG.*','GIT_TAG 7.0.12' -replace '7\..*|8\..*|master|develop','7.0.12' | Set-Content $cmake.FullName
+          # direct patch if FetchContent declares without tag
+          (Get-Content $cmake.FullName) | ForEach-Object { $_ -replace 'juce','JUCE' } | Out-Null
+          Get-Content $cmake.FullName | Select-String JUCE -Context 1,2
+
       - name: Configure
         shell: pwsh
         run: |
-          $f = Get-ChildItem p -Recurse -Filter CMakeLists.txt | Where-Object { $_.FullName -like "*BM800*" } | Select-Object -First 1
-          cmake -S $f.DirectoryName -B build -DCMAKE_BUILD_TYPE=Release
+          $f = Get-ChildItem p -Recurse -Filter CMakeLists.txt | Select-Object -First 1
+          cmake -S $f.DirectoryName -B build -DCMAKE_BUILD_TYPE=Release -DJUCE_FETCHCONTENT_TAG=7.0.12
+
       - name: Build
-        run: cmake --build build --config Release
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --verbose 2>&1 | Tee-Object log.txt
+          if ($LASTEXITCODE -ne 0) { Select-String -Path log.txt -Pattern "error" -Context 3,5; exit 1 }
+
       - name: Upload VST3
         uses: actions/upload-artifact@v4
         with:
