@@ -10,14 +10,20 @@ jobs:
         run: |
           $zip = Get-ChildItem *.zip | Select-Object -First 1
           Expand-Archive $zip.FullName -DestinationPath p -Force
-          dir p -Recurse
-      - name: Configure
+      - name: FIX JUCE API
+        shell: pwsh
         run: |
-          if (Test-Path p/CMakeLists.txt) { cmake -S p -B build -DCMAKE_BUILD_TYPE=Release } else { $d = Get-ChildItem p -Recurse -Filter CMakeLists.txt | Select-Object -First 1 | ForEach-Object { $_.DirectoryName }; cmake -S $d -B build -DCMAKE_BUILD_TYPE=Release }
+          $file = "p/BM800ToPro_VST3/Source/PluginProcessor.cpp"
+          (Get-Content $file) -replace 'setAttackTime','setAttack' -replace 'setReleaseTime','setRelease' -replace 'setHoldTime','setHold' | Set-Content $file
+      - name: Configure
+        shell: pwsh
+        run: |
+          $f = Get-ChildItem p -Recurse -Filter CMakeLists.txt | Where-Object { $_.FullName -like "*BM800*" } | Select-Object -First 1
+          cmake -S $f.DirectoryName -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build
         run: cmake --build build --config Release
       - name: Upload VST3
         uses: actions/upload-artifact@v4
         with:
           name: BM800ToPro_VST3
-          path: "**/*.vst3"
+          path: build/**/*.vst3
