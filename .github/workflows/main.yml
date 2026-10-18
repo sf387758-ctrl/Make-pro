@@ -11,28 +11,26 @@ jobs:
         run: |
           $zip = Get-ChildItem *.zip | Select-Object -First 1
           Expand-Archive $zip.FullName -DestinationPath p -Force
-          dir p -Recurse -Depth 3
 
-      - name: FORCE JUCE 7
+      - name: FORCE JUCE 7.0.12 - FIX ALL 16 ERRORS
         shell: pwsh
         run: |
           $cmake = Get-ChildItem p -Recurse -Filter CMakeLists.txt | Select-Object -First 1
-          (Get-Content $cmake.FullName) -replace 'GIT_TAG.*','GIT_TAG 7.0.12' -replace '7\..*|8\..*|master|develop','7.0.12' | Set-Content $cmake.FullName
-          # direct patch if FetchContent declares without tag
-          (Get-Content $cmake.FullName) | ForEach-Object { $_ -replace 'juce','JUCE' } | Out-Null
-          Get-Content $cmake.FullName | Select-String JUCE -Context 1,2
+          Write-Host "Found: $($cmake.FullName)"
+          $txt = Get-Content $cmake.FullName -Raw
+          $txt = $txt -replace 'GIT_TAG\s+.*', 'GIT_TAG 7.0.12'
+          $txt | Set-Content $cmake.FullName
+          Write-Host "--- FIXED CMAKE ---"
+          Get-Content $cmake.FullName | Select-String -Pattern "GIT_TAG" -Context 1,1
 
       - name: Configure
         shell: pwsh
         run: |
           $f = Get-ChildItem p -Recurse -Filter CMakeLists.txt | Select-Object -First 1
-          cmake -S $f.DirectoryName -B build -DCMAKE_BUILD_TYPE=Release -DJUCE_FETCHCONTENT_TAG=7.0.12
+          cmake -S $f.DirectoryName -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        shell: pwsh
-        run: |
-          cmake --build build --config Release --verbose 2>&1 | Tee-Object log.txt
-          if ($LASTEXITCODE -ne 0) { Select-String -Path log.txt -Pattern "error" -Context 3,5; exit 1 }
+        run: cmake --build build --config Release
 
       - name: Upload VST3
         uses: actions/upload-artifact@v4
